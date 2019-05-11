@@ -1,0 +1,14 @@
+name: rng
+description: A starting point for Dart libraries or applications.
+version: 0.8.0
+homepage: https://github.com/OpenDICOMweb/sdk/core
+author: Jim Philbin <jfphilbin@gmail.com>
+
+environment:
+  sdk: '>=2.0.0 <3.0.0'
+
+dependencies:
+  charcode: any
+
+dev_dependencies:
+  test: ^1.0.0
