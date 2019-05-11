@@ -13,8 +13,6 @@ import 'package:rng/rng.dart';
 import 'package:test/test.dart';
 
 void main() {
-//  Server.initialize(name: 'rng/float_test', level: Level.info);
-
   group('getLength tests of RNG', () {
     final rng = RNG(0);
     const count = 10;
@@ -26,15 +24,12 @@ void main() {
     test('getLength test', () {
       for (var i = 0; i < count; i++) {
         final l0 = rng.getLength(minMin, maxMin);
-//        log.debug('min: $minMin <= $l0 <= max: $maxMin');
         expect(l0, inInclusiveRange(minMin, maxMin));
 
         final l1 = rng.getLength(minMax, maxMax);
-//        log.debug('min: $minMax <= $l0 <= max: $maxMax');
         expect(l1, inInclusiveRange(minMax, maxMax));
 
         final l2 = rng.getLength(minMin, maxMax);
-//        log.debug('min: $minMin <= $l0 <= max: $maxMax');
         expect(l2, inInclusiveRange(minMin, maxMax));
       }
     });
@@ -42,7 +37,6 @@ void main() {
     test('IntList Test', () {
       for (var i = 0; i < count; i++) {
         final list = rng.intList(-20, 60, minMin, maxMin);
-//        log.debug('IntList: (${list.length})$list');
         expect(list is List<int>, true);
         expect(list.length, inInclusiveRange(minMin, maxMin));
         for (final i in list) expect(i, inInclusiveRange(-20, 60));
@@ -52,7 +46,6 @@ void main() {
     test('IntList Test values', () {
       for (var i = 1; i < count; i++) {
         final list = rng.intList(i, i + 1, minMin, maxMin);
-//        log.debug('IntList: (${list.length})$list');
         expect(list is List<int>, true);
         expect(list.length, inInclusiveRange(minMin, maxMin));
         for (final i in list) expect(i, inInclusiveRange(i, i + 1));
@@ -63,7 +56,6 @@ void main() {
       for (var i = 1; i < count; i++) {
         final minMin = i, minMax = i + 1;
         final list = rng.intList(i, i + 1, minMin, minMax);
-//        log.debug('IntList: (${list.length})$list');
         expect(list is List<int>, true);
         expect(list.length, inInclusiveRange(minMin, minMax));
         for (final i in list) expect(i, inInclusiveRange(i, i + 1));
@@ -80,12 +72,10 @@ void main() {
     final minLength = rng.nextUint(minMin, maxMin);
     final maxLength =
         rng.nextUint(minLength, minLength + rng.nextUint(minMax, maxMax));
-//    log.debug('minLength($minLength), maxLength($maxLength)');
 
     //TODO: test range of values
     test('IntList Test', () {
       final list = rng.intList(-20, 60, minLength, maxLength);
-//      log.debug('IntList: (${list.length})$list');
       expect(list is List<int>, true);
       expect(list.length, inInclusiveRange(minLength, maxLength));
       for (final i in list) expect(i, inInclusiveRange(-20, 60));
@@ -93,56 +83,48 @@ void main() {
 
     test('Int8List Test', () {
       final list = rng.int8List(minLength, maxLength);
-//      log.debug('Int8List: (${list.length})$list');
       expect(list.length, inInclusiveRange(minLength, maxLength));
       expect(list is Int8List, true);
     });
 
     test('Int16List Test', () {
       final list = rng.int16List(minLength, maxLength);
-//      log.debug('Int16List: (${list.length})$list');
       expect(list.length, inInclusiveRange(minLength, maxLength));
       expect(list is Int16List, true);
     });
 
     test('Int32List Test', () {
       final list = rng.int32List(minLength, maxLength);
-//      log.debug('Int32List: (${list.length})$list');
       expect(list.length, inInclusiveRange(minLength, maxLength));
       expect(list is Int32List, true);
     });
 
     test('Int64List Test', () {
       final list = rng.int64List(minLength, maxLength);
-//      log.debug('Int64List: (${list.length})$list');
       expect(list.length, inInclusiveRange(minLength, maxLength));
       expect(list is Int64List, true);
     });
 
     test('Uint8List Test', () {
       final list = rng.uint8List(minLength, maxLength);
-//      log.debug('Uint8List: (${list.length})$list');
       expect(list.length, inInclusiveRange(minLength, maxLength));
       expect(list is Uint8List, true);
     });
 
     test('Uint16List Test', () {
       final list = rng.uint16List(minLength, maxLength);
-//      log.debug('Uint16List: (${list.length})$list');
       expect(list.length, inInclusiveRange(minLength, maxLength));
       expect(list is Uint16List, true);
     });
 
     test('Uint32List Test', () {
       final list = rng.uint32List(minLength, maxLength);
-//      log.debug('Uint32List: (${list.length})$list');
       expect(list.length, inInclusiveRange(minLength, maxLength));
       expect(list is Uint32List, true);
     });
 
     test('Uint64List Test', () {
       final list = rng.uint64List(minLength, maxLength);
-//      log.debug('Uint64List: (${list.length})$list');
       expect(list.length, inInclusiveRange(minLength, maxLength));
       expect(list is Uint64List, true);
     });
@@ -155,7 +137,6 @@ void main() {
     test('nextDouble Test', () {
       for (var i = 0; i < count; i++) {
         final nd = rng.nextDouble;
-//        log.debug('double: $nd');
         expect(nd is double, true);
         expect(nd >= 0 || nd <= 1, true);
       }
@@ -164,7 +145,6 @@ void main() {
     test('nextFloat Test', () {
       for (var i = 0; i < count; i++) {
         final nf = rng.nextFloat;
-//        log.debug('nextFloat: $nf');
         expect(nf is double, true);
         expect(nf.abs() > 1, true);
       }
@@ -175,10 +155,7 @@ void main() {
 
       for (var i = 0; i < count; i++) {
         final nf32 = rng.nextFloat32;
-//        log.debug('nextFloat32: $nf32');
         floatBox[0] = nf32;
-//        log.debug('floatBox: ${floatBox[0]}');
-
         expect(nf32 is double, true);
         expect(floatBox[0] is double, true);
         expect(nf32 == floatBox[0], true);
@@ -194,7 +171,6 @@ void main() {
     test('listOfDouble Test', () {
       for (var i = 0; i < count; i++) {
         final list = rng.listOfDouble(1, 32);
-//        log.debug('Float32List: (${list.length})$list');
         expect(list is List<double>, true);
         expect(list.length, inInclusiveRange(1, 32));
       }
@@ -203,7 +179,6 @@ void main() {
     test('List<Float32> Test', () {
       for (var i = 0; i < count; i++) {
         final list0 = rng.listOfFloat32(1, 32);
-//        log.debug('Float32List: (${list0.length})$list0');
         expect(list0 is List<double>, true);
         expect(list0.length, inInclusiveRange(1, 32));
 
@@ -218,7 +193,6 @@ void main() {
     test('Float32List Test', () {
       for (var i = 0; i < count; i++) {
         final list = rng.float32List(1, 32);
-//        log.debug('Float32List: (${list.length})$list');
         expect(list is Float32List, true);
         expect(list.length, inInclusiveRange(1, 32));
       }
@@ -227,7 +201,6 @@ void main() {
     test('Float64List Test', () {
       for (var i = 0; i < count; i++) {
         final list = rng.float64List(1, 32);
-//        log.debug('Float32List: (${list.length})$list');
         expect(list is Float64List, true);
         expect(list.length, inInclusiveRange(1, 32));
       }

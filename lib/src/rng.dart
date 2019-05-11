@@ -12,21 +12,43 @@ import 'dart:typed_data';
 import 'package:charcode/ascii.dart';
 import 'package:rng/src/constants.dart';
 
-/* ignore_for_file: public_member_api_docs */
+const int _kMin64BitInt = 0x8000000000000000;
+const int _kMax64BitInt = 0x7FFFFFFFFFFFFFFF;
 
-const int kMin64BitInt = 0x8000000000000000;
-const int kMax64BitInt = 0x7FFFFFFFFFFFFFFF;
+ const int _kMinValueRandomInt = 1;
+ const int _kMaxValueRandomIntExclusive = 1 << 32;
+ const int _kMaxValueRandomIntInclusive =
+    _kMaxValueRandomIntExclusive - 1;
+ const int _kMinValueRandom31BitIntExclusive = -0x40000000;
+ const int _kMinValueRandom31BitIntInclusive =
+    _kMinValueRandom31BitIntExclusive + 1;
+ const int _kMaxValueRandom31BitIntExclusive = 0x40000000;
+ const int _kMaxValueRandom31BitIntInclusive =
+    _kMaxValueRandom31BitIntExclusive - 1;
+const int _kMaxValueRandom30BitInt = 0x3FFFFFFF;
+
 
 /// Random Number Generator with useful utilities.
+///
+/// This package extends the [Random] number generator provided by
+/// the Dart _core_ library.
 //TODO: document
 class RNG {
+  /// True if using [Random.secure].
   final bool isSecure;
-  final int defaultMinValueStringLength;
-  final int defaultMaxValueStringLength;
-  final int defaultMinValueListLength;
-  final int defaultMaxValueListLength;
+  /// The default minimum [String] length returned.
+  final int defaultMinStringLength;
+  /// The default maximum [String] length returned.
+  final int defaultMaxStringLength;
+  /// The default minimum [List] length returned.
+  final int defaultMinListLength;
+  /// The default maximum [List] length returned.
+  final int defaultMaxListLength;
 
+  /// The initial [seed]. If _null_ no [seed] was provided.
   final int seed;
+
+  /// The [Random] number generator being used.
   final Random generator;
 
   /// Creates a Random Number Generator ([RNG]) using Dart's [Random].
@@ -36,13 +58,15 @@ class RNG {
   /// [Random.secure].
   factory RNG.secure() => RNG.withDefaults(isSecure: true);
 
+  /// Creates a Random Number Generator ([RNG]) with the specified default
+  /// values.
   RNG.withDefaults({
     this.isSecure = false,
     this.seed,
-    this.defaultMinValueStringLength = 4,
-    this.defaultMaxValueStringLength = 1024,
-    this.defaultMinValueListLength = 1,
-    this.defaultMaxValueListLength = 256,
+    this.defaultMinStringLength = 4,
+    this.defaultMaxStringLength = 1024,
+    this.defaultMinListLength = 1,
+    this.defaultMaxListLength = 256,
   }) : generator = isSecure ? Random.secure() : Random(seed);
 
   /// Returns a random boolean ([bool]).
@@ -78,7 +102,7 @@ class RNG {
   /// Returns a [double] between 0 and 1.
   double get nextDouble => generator.nextDouble();
 
-  //TODO: Unit test.
+
   /// Returns a [double] between the most-negative and most-positive 32-bit
   /// signed integers.
   double get nextFloat => nextDouble * nextInt32;
@@ -89,7 +113,6 @@ class RNG {
   double get nextFloat32 {
     final n = nextDouble;
     _float32[0] = n;
-    //TODO: remove after confirming NaNs are not generated
     // ignore: only_throw_errors
     if (_float32[0].isNaN) throw 'NaN: ${_float32[0]}';
     return _float32[0];
@@ -105,9 +128,11 @@ class RNG {
   /// i.e. in range 32 - 126 inclusive.
   int get nextAsciiVChar => _nextUint32($space, $tilde);
 
+  /// Returns an ASCII digit character (code point) between 0 and 9.
   int get nextAsciiDigit => _nextUint32($0, $9);
 
-  // TODO: Unit test
+  /// Returns an ASCII alphabetic (A-Z, a-z) character (code point) or
+  /// the underscore character (_).
   int get nextAsciiWordChar => _nextAsciiWordChar();
 
   int _nextAsciiWordChar() {
@@ -119,10 +144,11 @@ class RNG {
   /// Returns a Utf8 code point, i.e. between 32 and 255.
   int get nextUtf8 => _nextUint32(32, 255);
 
+  /// Returns a [String] containing a single ASCII digit character
+  /// (code point) between 0 and 9.
   String get nextDigit => String.fromCharCode(nextAsciiDigit);
 
-  // TODO: Unit test
-  int get nextMicrosecond => _nextMicrosecond();
+  //int get nextMicrosecond => _nextMicrosecond();
 
   //Urgent: finish after all test working
   int _nextMicrosecond() {
@@ -154,6 +180,8 @@ class RNG {
     return s;
   }
 
+  /// Returns a [String] containing ASCII word characters, i.e.
+  /// either alphabetic (A-Z, a-z) or the underscore (_) characters.
   String nextAsciiWord([int minLength = 1, int maxLength = 16]) {
     final len = _getLength(minLength, maxLength);
     final sb = StringBuffer();
@@ -183,31 +211,21 @@ class RNG {
     return generator.nextInt(limit + 1) + minimum;
   }
 
-  static const int kMinValueRandomInt = 1;
-  static const int kMaxValueRandomIntExclusive = 1 << 32;
-  static const int kMaxValueRandomIntInclusive =
-      kMaxValueRandomIntExclusive - 1;
-  static const int kMinValueRandom31BitIntExclusive = -0x40000000;
-  static const int kMinValueRandom31BitIntInclusive =
-      kMinValueRandom31BitIntExclusive + 1;
-  static const int kMaxValueRandom31BitIntExclusive = 0x40000000;
-  static const int kMaxValueRandom31BitIntInclusive =
-      kMaxValueRandom31BitIntExclusive - 1;
 
   /// Returns a 63-bit integer (DartSMInt) in the range from [min]
   /// to [max] inclusive.
   ///
   /// Note: [min] and [max] can be negative, but [min] must be less than [max].
-  int nextInt([int min = kMin64BitInt, int max = kMax64BitInt]) {
+  int nextInt([int min = _kMin64BitInt, int max = _kMax64BitInt]) {
     RangeError.checkValueInInterval(
-        min, kMin64BitInt, kMax64BitInt, 'min');
-    RangeError.checkValueInInterval(max, min, kMax64BitInt, 'max');
+        min, _kMin64BitInt, _kMax64BitInt, 'min');
+    RangeError.checkValueInInterval(max, min, _kMax64BitInt, 'max');
     var limit = _getLimit(min, max);
-    if (limit > kMax64BitInt) limit = kMax64BitInt;
-    if (limit < 0 || limit > kMax64BitInt)
+    if (limit > _kMax64BitInt) limit = _kMax64BitInt;
+    if (limit < 0 || limit > _kMax64BitInt)
       // ignore: only_throw_errors
       throw 'Invalid range error: '
-          '$kMin64BitInt > $max - $min = $limit < $kMax64BitInt';
+          '$_kMin64BitInt > $max - $min = $limit < $_kMax64BitInt';
     final n = (limit < kUint32MaxValue)
         ? __nextUint32(limit)
         : _nextSMUint().remainder(limit);
@@ -220,7 +238,7 @@ class RNG {
 
   // Always returns a positive integer that is less than Int32MaxValue.
   int _getLimit(int min, int max) {
-    assert(min >= kMin64BitInt && max <= kMax64BitInt && min <= max);
+    assert(min >= _kMin64BitInt && max <= _kMax64BitInt && min <= max);
     final limit = max - min;
     return (limit < 0) ? -limit : limit;
   }
@@ -245,12 +263,12 @@ class RNG {
 
   // TODO: See _nextSMInt issue is same
   /// Returns a 64-bit random unsigned integer _n_, in the range
-  /// 0 >= n <= [kMax64BitInt]
+  /// 0 >= n <= [_kMax64BitInt]
   int _nextSMUint() {
-    final upper = generator.nextInt(kMaxValueRandom30BitInt);
-    final lower = generator.nextInt(kMaxValueRandomIntExclusive);
+    final upper = generator.nextInt(_kMaxValueRandom30BitInt);
+    final lower = generator.nextInt(_kMaxValueRandomIntExclusive);
     final n = (upper << 32) | lower;
-    assert(n >= 0 && n <= kMax64BitInt);
+    assert(n >= 0 && n <= _kMax64BitInt);
     return n;
   }
 
@@ -262,26 +280,24 @@ class RNG {
   /// Returns a 63-bit random signed integer _n_, in the range
   /// [kDartMinValueSMInt >= n <= [kDartMaxValueSMInt]
   int _nextSMInt() {
-    final upper = generator.nextInt(kMaxValueRandom30BitInt);
-    final lower = generator.nextInt(kMaxValueRandomIntExclusive);
+    final upper = generator.nextInt(_kMaxValueRandom30BitInt);
+    final lower = generator.nextInt(_kMaxValueRandomIntExclusive);
     var n = (upper << 32) | lower;
     n = (generator.nextBool()) ? n : -n;
-    assert(n >= kMin64BitInt && n <= kMax64BitInt,
-        '$kMin64BitInt <= $n ${n.toRadixString(16)} <= $kMax64BitInt');
+    assert(n >= _kMin64BitInt && n <= _kMax64BitInt,
+        '$_kMin64BitInt <= $n ${n.toRadixString(16)} <= $_kMax64BitInt');
     return n;
   }
-
-  static const int kMaxValueRandom30BitInt = 0x3FFFFFFF;
 
   // TODO: See _nextSMInt issue is same
   /// Returns a 63-bit random number between [min] and [max] inclusive,
   /// Where [min] >= 0, and [max] >= min && [max] <= 0xFFFFFFFF.
-  int nextUint([int min = 0, int max = kMax64BitInt]) {
-    RangeError.checkValueInInterval(min, 0, kMax64BitInt, 'min');
-    RangeError.checkValueInInterval(max, min, kMax64BitInt, 'max');
+  int nextUint([int min = 0, int max = _kMax64BitInt]) {
+    RangeError.checkValueInInterval(min, 0, _kMax64BitInt, 'min');
+    RangeError.checkValueInInterval(max, min, _kMax64BitInt, 'max');
     var limit = max - min;
-    if (limit > kMax64BitInt) limit = kMax64BitInt;
-    if (limit < 0 || limit > kMax64BitInt)
+    if (limit > _kMax64BitInt) limit = _kMax64BitInt;
+    if (limit < 0 || limit > _kMax64BitInt)
       // ignore: only_throw_errors
       throw 'Invalid range error: 0 > $max - $min = $limit < 0xFFFFFFFF';
     return (limit < kUint32MaxValue)
@@ -290,11 +306,11 @@ class RNG {
   }
 
   /// Returns [String] containing visible ASCII code points, i.e. between
-  /// [kSpace](32) and [kDelete] - 1(126). If [length] is specified, the
+  /// [$space](32) and [$del] - 1(126). If [length] is specified, the
   /// returned [String] will have that [length]; otherwise, it will have
   /// a random length, between 4 and 1024 inclusive.
   Uint8List asciiString([int length]) {
-    length ??= nextUint(defaultMinValueStringLength, 1024);
+    length ??= nextUint(defaultMinStringLength, 1024);
     RangeError.checkValueInInterval(length, 0, 4096, 'length');
     final v = Uint8List(length);
     for (var i = 0; i < length; i++) v[i] = nextAsciiVChar;
@@ -307,7 +323,7 @@ class RNG {
   /// and 1024 inclusive. _Note_: While the returned [String] will contain
   /// UTF-8 code units, they will not necessarily be valid code points.
   Uint8List utf8String([int length]) {
-    length ??= nextUint(defaultMinValueStringLength, 1024);
+    length ??= nextUint(defaultMinStringLength, 1024);
     RangeError.checkValueInInterval(length, 0, 4096, 'length');
     final v = Uint8List(length);
     for (var i = 0; i < length; i++) v[i] = nextUint8;
@@ -323,8 +339,8 @@ class RNG {
 
   int _getLength([int minLength, int maxLength]) {
     if (maxLength == 0) return 0;
-    final min = (minLength == null) ? defaultMinValueListLength : minLength;
-    final max = (maxLength == null) ? defaultMaxValueListLength : maxLength;
+    final min = (minLength == null) ? defaultMinListLength : minLength;
+    final max = (maxLength == null) ? defaultMaxListLength : maxLength;
     RangeError.checkValidRange(0, min, kInt32MaxValue, 'minLength');
     RangeError.checkValidRange(min, max, kInt32MaxValue, 'maxLength');
     return nextUint(minLength, maxLength);
@@ -347,6 +363,7 @@ class RNG {
     return vList;
   }
 
+  /// Returns a [List<ByteData>].
   ByteData byteDataList(int minValue, int maxValue,
       [int minLength, int maxLength]) {
     RangeError.checkValueInInterval(
