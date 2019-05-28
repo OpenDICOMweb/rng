@@ -15,18 +15,16 @@ import 'package:rng/src/constants.dart';
 const int _kMin64BitInt = 0x8000000000000000;
 const int _kMax64BitInt = 0x7FFFFFFFFFFFFFFF;
 
- const int _kMinValueRandomInt = 1;
- const int _kMaxValueRandomIntExclusive = 1 << 32;
- const int _kMaxValueRandomIntInclusive =
-    _kMaxValueRandomIntExclusive - 1;
- const int _kMinValueRandom31BitIntExclusive = -0x40000000;
- const int _kMinValueRandom31BitIntInclusive =
+const int _kMinValueRandomInt = 1;
+const int _kMaxValueRandomIntExclusive = 1 << 32;
+const int _kMaxValueRandomIntInclusive = _kMaxValueRandomIntExclusive - 1;
+const int _kMinValueRandom31BitIntExclusive = -0x40000000;
+const int _kMinValueRandom31BitIntInclusive =
     _kMinValueRandom31BitIntExclusive + 1;
- const int _kMaxValueRandom31BitIntExclusive = 0x40000000;
- const int _kMaxValueRandom31BitIntInclusive =
+const int _kMaxValueRandom31BitIntExclusive = 0x40000000;
+const int _kMaxValueRandom31BitIntInclusive =
     _kMaxValueRandom31BitIntExclusive - 1;
 const int _kMaxValueRandom30BitInt = 0x3FFFFFFF;
-
 
 /// Random Number Generator with useful utilities.
 ///
@@ -36,12 +34,16 @@ const int _kMaxValueRandom30BitInt = 0x3FFFFFFF;
 class RNG {
   /// True if using [Random.secure].
   final bool isSecure;
+
   /// The default minimum [String] length returned.
   final int defaultMinStringLength;
+
   /// The default maximum [String] length returned.
   final int defaultMaxStringLength;
+
   /// The default minimum [List] length returned.
   final int defaultMinListLength;
+
   /// The default maximum [List] length returned.
   final int defaultMaxListLength;
 
@@ -101,7 +103,6 @@ class RNG {
 
   /// Returns a [double] between 0 and 1.
   double get nextDouble => generator.nextDouble();
-
 
   /// Returns a [double] between the most-negative and most-positive 32-bit
   /// signed integers.
@@ -211,14 +212,12 @@ class RNG {
     return generator.nextInt(limit + 1) + minimum;
   }
 
-
   /// Returns a 63-bit integer (DartSMInt) in the range from [min]
   /// to [max] inclusive.
   ///
   /// Note: [min] and [max] can be negative, but [min] must be less than [max].
   int nextInt([int min = _kMin64BitInt, int max = _kMax64BitInt]) {
-    RangeError.checkValueInInterval(
-        min, _kMin64BitInt, _kMax64BitInt, 'min');
+    RangeError.checkValueInInterval(min, _kMin64BitInt, _kMax64BitInt, 'min');
     RangeError.checkValueInInterval(max, min, _kMax64BitInt, 'max');
     var limit = _getLimit(min, max);
     if (limit > _kMax64BitInt) limit = _kMax64BitInt;
@@ -310,7 +309,7 @@ class RNG {
   /// returned [String] will have that [length]; otherwise, it will have
   /// a random length, between 4 and 1024 inclusive.
   Uint8List asciiString([int length]) {
-    length ??= nextUint(defaultMinStringLength, 1024);
+    length ??= defaultMinStringLength;
     RangeError.checkValueInInterval(length, 0, 4096, 'length');
     final v = Uint8List(length);
     for (var i = 0; i < length; i++) v[i] = nextAsciiVChar;
@@ -337,13 +336,15 @@ class RNG {
   int getLength([int minLength, int maxLength]) =>
       _getLength(minLength, maxLength);
 
-  int _getLength([int minLength, int maxLength]) {
-    if (maxLength == 0) return 0;
-    final min = (minLength == null) ? defaultMinListLength : minLength;
-    final max = (maxLength == null) ? defaultMaxListLength : maxLength;
+  int _getLength([int min, int max]) {
+/*
+    min ??= defaultMinListLength;
+    max ?? defaultMaxListLength;
     RangeError.checkValidRange(0, min, kInt32MaxValue, 'minLength');
     RangeError.checkValidRange(min, max, kInt32MaxValue, 'maxLength');
-    return nextUint(minLength, maxLength);
+*/
+    if (max == 0) return 0;
+    return nextUint(min, max);
   }
 
   /// Returns a random [List<int>] with a length between [minLength] and
@@ -486,6 +487,31 @@ class RNG {
     for (var i = 0; i < length; i++) v[i] = nextFloat64;
     return v;
   }
+
+  /// Returns a random [Uint8List] with a length between [minLength] and
+  /// [maxLength] inclusive, corresponding to a UTF-8 String.
+  Uint8List utf8Bytes([int minLength, int maxLength]) {
+    final length = _getLength(minLength, maxLength);
+    final len = length.isEven ? length : length + 1;
+    final v = Uint8List(len);
+    for (var i = 0; i < length; i++) v[i] = nextUtf8;
+    return v;
+  }
+
+  /// Returns a random [Uint8List] with a length between [minLength] and
+  /// [maxLength] inclusive, corresponding to an ASCII String.
+  Uint8List asciiBytes([int minLength, int maxLength]) {
+    final length = _getLength(minLength, maxLength);
+    final len = length.isEven ? length : length + 1;
+    final v = Uint8List(len);
+    for (var i = 0; i < length; i++) v[i] = nextAscii;
+    return v;
+  }
+
+  /// Returns a random [Uint8List] with a length between [minLength] and
+  /// [maxLength] inclusive, corresponding to an Latin1 String.
+  Uint8List latinBytes([int minLength, int maxLength]) =>
+      utf8Bytes(minLength, maxLength);
 }
 
 /// Returns _true_ if [c] is an regex \w character, i.e. alphanumeric or '_'.
