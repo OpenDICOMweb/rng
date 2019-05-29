@@ -6,6 +6,7 @@
 //  Primary Author: Jim Philbin <jfphilbin@gmail.edu>
 //  See the AUTHORS file for other contributors.
 //
+import 'dart:convert' as cvt;
 import 'dart:math';
 import 'dart:typed_data';
 
@@ -129,6 +130,28 @@ class RNG {
   /// i.e. in range 32 - 126 inclusive.
   int get nextAsciiVChar => _nextUint32($space, $tilde);
 
+  /// Returns a visible (printing) ASCII character (code point),
+  /// except for [$backslash] ('\').
+  int get nextDicomAscii {
+    int c;
+    do {
+      c = _nextUint32($space, $tilde);
+    } while (c == $backslash);
+    return c;
+  }
+
+  /// Returns a visible (printing) Latin character (code point),
+  /// except for [$backslash] ('\').
+  int get nextDicomLatin {
+    int c;
+    do {
+      c = _nextUint32($space, 255);
+      if (c < 32) continue;
+      if (c >= 0x7F && c <= 0x9F) continue;
+    } while (c == $backslash);
+    return c;
+  }
+
   /// Returns an ASCII digit character (code point) between 0 and 9.
   int get nextAsciiDigit => _nextUint32($0, $9);
 
@@ -149,7 +172,8 @@ class RNG {
   /// (code point) between 0 and 9.
   String get nextDigit => String.fromCharCode(nextAsciiDigit);
 
-  //int get nextMicrosecond => _nextMicrosecond();
+  /// Returns a random microsecond.
+  int get nextMicrosecond => _nextMicrosecond();
 
   //Urgent: finish after all test working
   int _nextMicrosecond() {
@@ -308,25 +332,37 @@ class RNG {
   /// [$space](32) and [$del] - 1(126). If [length] is specified, the
   /// returned [String] will have that [length]; otherwise, it will have
   /// a random length, between 4 and 1024 inclusive.
-  Uint8List asciiString([int length]) {
+  String asciiString([int length]) {
     length ??= defaultMinStringLength;
     RangeError.checkValueInInterval(length, 0, 4096, 'length');
     final v = Uint8List(length);
-    for (var i = 0; i < length; i++) v[i] = nextAsciiVChar;
-    return v;
+    for (var i = 0; i < length; i++) v[i] = nextDicomAscii;
+    return cvt.ascii.decode(v, allowInvalid: true);
   }
+
+  /// Returns [String] containing visible Latin code points.
+  /// If [length] is specified, the returned [String] will have that [length];
+  /// otherwise, it will have a random length, between 4 and 1024 inclusive.
+  String latinString([int length]) {
+    length ??= defaultMinStringLength;
+    RangeError.checkValueInInterval(length, 0, 4096, 'length');
+    final v = Uint8List(length);
+    for (var i = 0; i < length; i++) v[i] = nextDicomLatin;
+    return cvt.latin1.decode(v, allowInvalid: true);
+  }
+
 
   /// Returns [String] of [length] containing UTF-8 code units in the range
   /// from 0 to 255. If [length] is specified, the returned [String] will
   /// have that [length]; otherwise, it will have a random length, between 4
   /// and 1024 inclusive. _Note_: While the returned [String] will contain
   /// UTF-8 code units, they will not necessarily be valid code points.
-  Uint8List utf8String([int length]) {
+  String utf8String([int length]) {
     length ??= nextUint(defaultMinStringLength, 1024);
     RangeError.checkValueInInterval(length, 0, 4096, 'length');
     final v = Uint8List(length);
     for (var i = 0; i < length; i++) v[i] = nextUint8;
-    return v;
+    return cvt.utf8.decode(v, allowMalformed: true);
   }
 
   /// Returns a random a length between [minLength] and [maxLength] inclusive.
@@ -494,6 +530,15 @@ class RNG {
     return v;
   }
 
+  /// Returns a random [List<String>] containing UTF-8 Strings with
+  /// length between [minLength] and [maxLength] inclusive.
+  List<String> utf8List([int minLength, int maxLength]) {
+    final length = _getLength(minLength, maxLength);
+    final list = List<String>(length);
+    for (var i = 0; i < length; i++) list[i] = utf8String();
+    return list;
+  }
+
   /// Returns a random [Uint8List] with a length between [minLength] and
   /// [maxLength] inclusive, corresponding to an ASCII String.
   Uint8List asciiBytes([int minLength, int maxLength]) {
@@ -504,10 +549,29 @@ class RNG {
     return v;
   }
 
+  /// Returns a random [List<String>] containing ASCII Strings with
+  /// length between [minLength] and [maxLength] inclusive.
+  List<String> asciiList([int minLength, int maxLength]) {
+    final length = _getLength(minLength, maxLength);
+    final list = List<String>(length);
+    for (var i = 0; i < length; i++) list[i] = asciiString();
+    return list;
+  }
+
   /// Returns a random [Uint8List] with a length between [minLength] and
   /// [maxLength] inclusive, corresponding to an Latin1 String.
   Uint8List latinBytes([int minLength, int maxLength]) =>
       utf8Bytes(minLength, maxLength);
+
+  /// Returns a random [List<String>] containing Latin Strings with
+  /// length between [minLength] and [maxLength] inclusive.
+  List<String> latinList([int minLength, int maxLength]) {
+    final length = _getLength(minLength, maxLength);
+    final list = List<String>(length);
+    for (var i = 0; i < length; i++) list[i] = latinString();
+    return list;
+  }
+
 }
 
 /// Returns _true_ if [c] is an regex \w character, i.e. alphanumeric or '_'.
