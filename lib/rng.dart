@@ -4,4 +4,6 @@
 // Original author: Jim Philbin <jfphilbin@gmail.edu> -
 // See the AUTHORS file for other contributors.
 //
+export 'src/dicom_rng.dart';
 export 'src/rng.dart';
+

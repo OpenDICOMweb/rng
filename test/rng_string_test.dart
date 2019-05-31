@@ -11,49 +11,51 @@ import 'package:rng/rng.dart';
 import 'package:test/test.dart';
 
 void main() {
-  group('RNG Strings test', () {
-    final rng = RNG(0);
+  const min = 0;
+  const max = 100;
+  final rng = DicomRNG(0);
 
+  group('RNG Strings test', () {
     test('nextDigit test', () {
-      final count = rng.getLength(10, 100);
+      final count = rng.getLength(min, max);
       for (var i = 0; i < count; i++) {
         final c = rng.nextDigit;
         final n = c.codeUnitAt(0);
-        expect(n >= $0 + 0 && n <= $0 + 9, true);
+        expect(n >= $0 + 0 && n <= $0 + 9, isTrue);
       }
     });
 
     test('nextIntString test', () {
-      final count = rng.getLength(10, 100);
+      final count = rng.getLength(min, max);
       for (var i = 0; i < count; i++) {
         final len = rng.getLength(1, 12);
         final s = rng.nextIntString(len, len);
-        expect(s.isNotEmpty && s.length <= 16, true);
-        expect(int.parse(s) is int, true);
+        expect(s.isNotEmpty && s.length <= 16, isTrue);
+        expect(int.parse(s) is int, isTrue);
       }
     });
 
     var minWordLength = 1;
     var maxWordLength = 16;
 
-    test('nextAsciiWord test', () {
-      final count = rng.getLength(10, 100);
+    test('nextDicomKeyword test', () {
+      final count = rng.getLength(min, max);
       for (var i = 0; i < count; i++) {
-        final word = rng.nextAsciiWord(minWordLength, maxWordLength);
-        expect(
-            word.length >= minWordLength && word.length <= maxWordLength, true);
+        final word = rng.nextDicomKeyword(minWordLength, maxWordLength);
+        expect(word.length >= minWordLength && word.length <= maxWordLength,
+            isTrue);
         final codeUnits = word.codeUnits;
-        for (final c in codeUnits) expect(isWordChar(c), true);
+        for (final c in codeUnits) expect(rng.isDicomKeywordChar(c), isTrue);
       }
 
       minWordLength = 16;
       maxWordLength = 64;
       for (var i = 0; i < count; i++) {
-        final word = rng.nextAsciiWord(minWordLength, maxWordLength);
-        expect(
-            word.length >= minWordLength && word.length <= maxWordLength, true);
+        final word = rng.nextDicomKeyword(minWordLength, maxWordLength);
+        expect(word.length >= minWordLength && word.length <= maxWordLength,
+            isTrue);
         final codeUnits = word.codeUnits;
-        for (final c in codeUnits) expect(isWordChar(c), true);
+        for (final c in codeUnits) expect(rng.isDicomKeywordChar(c), isTrue);
       }
     });
   });

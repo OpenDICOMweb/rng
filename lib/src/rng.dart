@@ -10,28 +10,8 @@ import 'dart:convert' as cvt;
 import 'dart:math';
 import 'dart:typed_data';
 
-import 'package:charcode/ascii.dart';
+import 'package:charcode/charcode.dart';
 import 'package:rng/src/constants.dart';
-
-/*
-const int _kMax32BitInt32 = 0x7FFFFFFF;
-const int _kInt64Min = -0x8000000000000000;
-const int _kInt64Max = 0x7FFFFFFFFFFFFFFF;
-const int _kMaxUint32 = 1 << 32;
-
-const int _kMinInt32 = -0x40000000;
-const int _kMinValueRandom31BitIntInclusive = _kMinInt32 + 1;
-
-const int _kMaxInt32 = 0x40000000;
-const int _kMaxValueRandom31BitIntInclusive = _kMaxInt32 - 1;
-
-const int _kMaxValueRandomIntInclusive = _kMaxUint32 - 1;
-
-const int _kMinValueRandomInt = 1;
-
-const int _kMaxValueRandom30BitInt = 0x3FFFFFFF;
-
-*/
 
 /// Random Number Generator with useful utilities.
 ///
@@ -81,17 +61,114 @@ class RNG {
   /// Returns a random boolean ([bool]).
   bool get nextBool => generator.nextBool();
 
+  /// Returns a 64-bit integer in the range from [min] to [max] inclusive.
+  ///
+  /// Note: [min] and [max] can be negative, but [min] must be less than [max].
+  int nextInt([int min = kInt64Min, int max = kInt64Max]) => _nextInt(min, max);
+
+  /// Returns a random [List<int>] with a length between [minLength] and
+  /// [maxLength] inclusive. The [List] will contain integers in the range
+  /// [min] to [max] inclusive. [min] and [max] must be
+  /// valid 32-bit integers. [minLength] defaults to 1, and [maxLength]
+  /// defaults to 256.
+  List<int> intList(int min, int max, [int minLength, int maxLength]) {
+    final len = _getLength(minLength, maxLength);
+    final vList = List<int>(len);
+    for (var i = 0; i < len; i++) vList[i] = _nextInt(min, max);
+    return vList;
+  }
+
+  /// Returns a 64-bit integer in the range from [min] to [max] inclusive.
+  ///
+  /// Note: [min] and [max] can be negative, but [min] must be less than [max].
+  int _nextInt([int min = kInt64Min, int max = kInt64Max]) {
+    RangeError.checkValueInInterval(min, kInt64Min, kInt64Max, 'min');
+    RangeError.checkValueInInterval(max, min, kInt64Max, 'max');
+    final limit = _getLimit(min, max);
+    final n = (limit < kUint32Max)
+        ? generator.nextInt(limit)
+        : _nextUint64().remainder(limit);
+    return n + min;
+  }
+
   /// Returns a random 8-bit signed integer ([int]).
   int get nextInt8 => _nextInt32(kInt8Min, kInt8Max);
+
+  /// Returns a random [List<int>] with a length between [minLength] and
+  /// [maxLength] inclusive. The [List] will contain 8-bit signed integers.
+  Int8List int8List([int minLength, int maxLength]) {
+    final length = _getLength(minLength, maxLength);
+    final v = Int8List(length);
+    for (var i = 0; i < length; i++) v[i] = _nextInt32(kInt8Min, kInt8Max);
+    return v;
+  }
 
   /// Returns a random 16-bit signed integer ([int]).
   int get nextInt16 => _nextInt32(kInt16Min, kInt16Max);
 
+  /// Returns a random [Int16List] with a length between [minLength] and
+  /// [maxLength] inclusive. The [List] will contain 16-bit signed integers.
+  Int16List int16List([int minLength, int maxLength]) {
+    final length = _getLength(minLength, maxLength);
+    final v = Int16List(length);
+    for (var i = 0; i < length; i++) v[i] = _nextInt32(kInt16Min, kInt16Max);
+    return v;
+  }
+
   /// Returns a random 32-bit signed integer ([int]).
   int get nextInt32 => _nextInt32(kInt32Min, kInt32Max);
 
+  /// Returns a random [Int32List] with a length between [minLength] and
+  /// [maxLength] inclusive. The [List] will contain 32-bit signed integers.
+  Int32List int32List([int minLength, int maxLength]) {
+    final length = _getLength(minLength, maxLength);
+    final v = Int32List(length);
+    for (var i = 0; i < length; i++) v[i] = _nextInt32(minLength, maxLength);
+    return v;
+  }
+
+  // Returns a 32-bit signed integer in the range from -[limit] to [limit]
+  // inclusive. _Note_: 0 <= [limit] <= 0xFFFFFFFF.
+  int _nextInt32([int min = kInt32Min, int max = kInt32Max]) {
+    assert(min != null && max != null);
+    final limit = _getLimit32(min, max);
+    return generator.nextInt(limit + 1) + min;
+  }
+
   /// Returns a random 64-bit signed integer ([int]).
   int get nextInt64 => _nextInt64(kInt64Min, kInt64Max);
+
+  /// Returns a random [Int64List] with a length between [minLength] and
+  /// [maxLength] inclusive. The [List] will contain 64-bit signed integers.
+  Int64List int64List([int minLength, int maxLength]) {
+    final length = _getLength(minLength, maxLength);
+    final v = Int64List(length);
+    for (var i = 0; i < length; i++) v[i] = _nextInt64(minLength, maxLength);
+    return v;
+  }
+
+  /// Returns a 64-bit random signed integer _n_, in the range
+  /// [kInt64Min >= n <= [kInt64Max].
+  int _nextInt64([int min = kInt64Min, int max = kInt64Max]) {
+    final upper = generator.nextInt(kUint32Max);
+    final lower = generator.nextInt(kUint32Max);
+    final n = (upper << 32) | lower;
+    return (generator.nextBool()) ? n : -n;
+  }
+
+  /// Returns a 64-bit random number between [min] and [max] inclusive,
+  /// Where [min] >= 0, and [max] >= min && [max] <= [kInt64Max].
+  int nextUint([int min = 0, int max = kInt64Max]) {
+    RangeError.checkValueInInterval(min, 0, kInt64Max, 'min');
+    RangeError.checkValueInInterval(max, min, kInt64Max, 'max');
+    final limit = max - min;
+    if (limit < 0 || limit > kInt64Max)
+      // ignore: only_throw_errors
+      throw 'Invalid range error: 0 > $max - $min = $limit < 0xFFFFFFFF';
+    return (limit < kUint32Max)
+        ? generator.nextInt(limit + 1) + min
+        : _nextUint64().remainder(limit + 1);
+  }
 
   /// Returns a random 7-bit unsigned integer ([int]), i.e. an ASCII code unit.
   int get nextUint7 => _nextUint32(0, 127);
@@ -99,95 +176,133 @@ class RNG {
   /// Returns a random 8-bit unsigned integer ([int]).
   int get nextUint8 => _nextUint32(0, kUint8Max);
 
+  /// Returns a random [Uint8List] with a length between [minLength] and
+  /// [maxLength] inclusive. The [List] will contain 8-bit unsigned integers.
+  Uint8List uint8List([int minLength, int maxLength]) {
+    final length = _getLength(minLength, maxLength);
+    final v = Uint8List(length);
+    for (var i = 0; i < length; i++) v[i] = nextUint8;
+    return v;
+  }
+
   /// Returns a random 16-bit unsigned integer ([int]).
   int get nextUint16 => _nextUint32(0, kUint16Max);
+
+  /// Returns a random [Uint16List] with a length between [minLength] and
+  /// [maxLength] inclusive. The [List] will contain 16-bit unsigned integers.
+  Uint16List uint16List([int minLength, int maxLength]) {
+    final length = _getLength(minLength, maxLength);
+    final v = Uint16List(length);
+    for (var i = 0; i < length; i++) v[i] = nextUint16;
+    return v;
+  }
 
   /// Returns a random 32-bit unsigned integer ([int]).
   int get nextUint32 => _nextUint32(0, kUint32Max);
 
+  /// Returns a random [Uint32List] with a length between [minLength] and
+  /// [maxLength] inclusive. The [List] will contain 32-bit unsigned integers.
+  Uint32List uint32List([int minLength, int maxLength]) {
+    final length = _getLength(minLength, maxLength);
+    final v = Uint32List(length);
+    for (var i = 0; i < length; i++) v[i] = nextUint32;
+    return v;
+  }
+
+  /// Returns a 32-bit random number between [min] and [max] inclusive.
+  int _nextUint32(int min, int max) {
+    final limit = (max - min) + 1;
+    assert(limit <= 1 << 32);
+    return generator.nextInt(limit) + min;
+  }
+
   /// Returns a random 64-bit unsigned integer ([int]).
   int get nextUint64 => _nextUint64();
 
-  /// Returns a [double] between 0 and 1.
-  double get nextDouble => generator.nextDouble();
+  /// Returns a random [Uint64List] with a length between [minLength] and
+  /// [maxLength] inclusive. The [List] will contain 64-bit unsigned integers.
+  Uint64List uint64List([int minLength, int maxLength]) {
+    final length = _getLength(minLength, maxLength);
+    final v = Uint64List(length);
+    for (var i = 0; i < length; i++) v[i] = nextUint64;
+    return v;
+  }
+
+  /// Returns a 64-bit random unsigned integer _n_, in the range
+  /// 0 >= n <= [kInt64Max]
+  int _nextUint64() {
+    final upper = generator.nextInt(kUint32Max);
+    final lower = generator.nextInt(kUint32Max);
+    final n = (upper << 31) | lower;
+    assert(n >= 0 && n <= kInt64Max, 'n = $n');
+    return n;
+  }
+
+  static final Float32List _float32box = Float32List(1);
 
   /// Returns a [double] between the most-negative and most-positive 32-bit
   /// signed integers.
-  double get nextFloat => nextDouble * nextInt32;
-
-  static final Float32List _float32 = Float32List(1);
+  double get _nextFloat => generator.nextDouble() * _nextUint32(0, kUint32Max);
 
   /// Returns a double in the range of an IEEE 32-bit floating point number.
   double get nextFloat32 {
-    final n = nextDouble;
-    _float32[0] = n;
-    // ignore: only_throw_errors
-    if (_float32[0].isNaN) throw 'NaN: ${_float32[0]}';
-    return _float32[0];
+    final n = _nextFloat;
+    _float32box[0] = n;
+    return _float32box[0];
   }
 
-  /// Synonym for [nextDouble].
-  double get nextFloat64 => nextDouble;
-
-  /// Returns an ASCII character (code point), i.e. in range 0 - 127 inclusive.
-  int get nextAscii => nextUint7;
-
-  /// Returns a visible (printing) ASCII character (code point),
-  /// i.e. in range 32 - 126 inclusive.
-  int get nextAsciiVChar => _nextUint32($space, $tilde);
-
-  /// Returns a visible (printing) ASCII character (code point),
-  /// except for [$backslash] ('\').
-  int get nextDicomAscii {
-    int c;
-    do {
-      c = _nextUint32($space, $tilde);
-    } while (c == $backslash);
-    return c;
+  /// Returns a random [Float32List] with a length between [minLength] and
+  /// [maxLength] inclusive. The [List] will contain 32-bit floating point
+  /// numbers.
+  Float32List float32List([int minLength, int maxLength]) {
+    final length = _getLength(minLength, maxLength);
+    final v = Float32List(length);
+    for (var i = 0; i < length; i++) v[i] = nextFloat32;
+    return v;
   }
 
-  /// Returns a visible (printing) Latin character (code point),
-  /// except for [$backslash] ('\').
-  int get nextDicomLatin {
-    int c;
-    do {
-      c = _nextUint32($space, 255);
-      if (c < 32) continue;
-      if (c >= 0x7F && c <= 0x9F) continue;
-    } while (c == $backslash);
-    return c;
+  /// Returns a [double] between the most-negative and most-positive 32-bit
+  /// signed integers.
+  double get nextFloat64 => _nextFloat;
+
+  /// Returns a random [Float64List] with a length between [minLength] and
+  /// [maxLength] inclusive. The [List] will contain 64-bit floating point
+  /// numbers.
+  Float64List float64List([int minLength, int maxLength]) {
+    final length = _getLength(minLength, maxLength);
+    final v = Float64List(length);
+    for (var i = 0; i < length; i++) v[i] = nextFloat64;
+    return v;
   }
 
-  /// Returns an ASCII digit character (code point) between 0 and 9.
-  int get nextAsciiDigit => _nextUint32($0, $9);
+  /// Returns a [double] with value between 0 and 1.
+  double get nextDouble => generator.nextDouble();
 
-  /// Returns an ASCII alphabetic (A-Z, a-z) character (code point) or
-  /// the underscore character (_).
-  int get nextAsciiWordChar => _nextAsciiWordChar();
-
-  int _nextAsciiWordChar() {
-    final c = _nextUint32($0, $z);
-    if (isWordChar(c)) return c;
-    return _nextAsciiWordChar();
+  /// Returns a random [List<double>] with a length between [minLength] and
+  /// [maxLength] inclusive, containing values between 0 and 1.
+  List<double> doubleList([int minLength, int maxLength]) {
+    final len = _getLength(minLength, maxLength);
+    final vList = List<double>(len);
+    for (var i = 0; i < len; i++) vList[i] = generator.nextDouble();
+    return vList;
   }
 
-  /// Returns a Utf8 code point, i.e. between 32 and 255.
-  int get nextUtf8 => _nextUint32(32, 255);
+  /// Returns a [List<ByteData>].
+  ByteData byteDataList(int min, int max, [int minLength, int maxLength]) {
+    RangeError.checkValueInInterval(min, kUint8Min, kUint8Max, 'Min');
+    RangeError.checkValueInInterval(max, min, kUint32Max, 'Max');
+    final len = _getLength(minLength, maxLength);
+    final vList = ByteData(len);
+    for (var i = 0; i < len; i++) vList.setUint8(i, nextInt(min, max));
+    return vList;
+  }
 
   /// Returns a [String] containing a single ASCII digit character
   /// (code point) between 0 and 9.
-  String get nextDigit => String.fromCharCode(nextAsciiDigit);
+  String get nextDigit => String.fromCharCode(_nextDigit);
 
-  /// Returns a random microsecond.
-  int get nextMicrosecond => _nextMicrosecond();
-
-  //Urgent: finish after all test working
-  int _nextMicrosecond() {
-    final us = _nextInt64();
-//    if (isValidDateTimeMicroseconds(us)) return us;
-//    return _nextMicrosecond();
-    return us;
-  }
+  /// Returns an ASCII digit character (code point) between 0 and 9.
+  int get _nextDigit => _nextUint32($0, $9);
 
   /// Returns a random String with sign + 1 - 11 digits
   String nextIntString([int minLength = 1, int maxLength = 12]) {
@@ -204,25 +319,10 @@ class RNG {
       sb.writeCharCode($plus);
     }
 
-    sb.writeCharCode(nextAsciiDigit);
-    for (var i = sb.length; i < len; i++) sb.writeCharCode(nextAsciiDigit);
+    sb.writeCharCode(_nextDigit);
+    for (var i = sb.length; i < len; i++) sb.writeCharCode(_nextDigit);
     final s = sb.toString();
     RangeError.checkValidRange(1, s.length, 16);
-    return s;
-  }
-
-  /// Returns a [String] containing ASCII word characters, i.e.
-  /// either alphabetic (A-Z, a-z) or the underscore (_) characters.
-  String nextAsciiWord([int minLength = 1, int maxLength = 16]) {
-    final len = _getLength(minLength, maxLength);
-    final sb = StringBuffer();
-    for (var i = 0; i < len; i++) {
-      final c = nextAsciiWordChar;
-      // ignore: only_throw_errors
-      if (!isWordChar(c)) throw 'Invalid Word Char: $c';
-      sb.writeCharCode(c);
-    }
-    final s = sb.toString();
     return s;
   }
 
@@ -235,44 +335,120 @@ class RNG {
     return (predicate(c)) ? c : nextAsciiSatisfying(predicate);
   }
 
-  /// Returns a 32-bit random number between [min] and [max] inclusive.
-  int _nextUint32(int minimum, int maximum) {
-    final limit = maximum - minimum;
-    assert(limit <= 1 << 32);
-    return generator.nextInt(limit + 1) + minimum;
+  /// Returns an ASCII character (code point), i.e. in range 0 - 127 inclusive.
+  int get nextAsciiChar => nextUint7;
+
+  /// Returns a visible (printing) ASCII character (code point),
+  /// i.e. [$space](0x20) and [$tilde] (0x7E) inclusive.
+  int get nextAsciiVChar => _nextUint32($space, $tilde);
+
+  /// Returns a random [Uint8List] with a length between [minLength] and
+  /// [maxLength] inclusive, containing visible ASCII code points
+  /// (see [nextAsciiVChar]), which corresponds to an ASCII String.
+  Uint8List asciiBytes([int minLength, int maxLength]) {
+    final length = _getLength(minLength, maxLength);
+    final len = length.isEven ? length : length + 1;
+    final v = Uint8List(len);
+    for (var i = 0; i < length; i++) v[i] = nextAsciiVChar;
+    return v;
   }
 
-  /// Returns a 64-bit integer in the range from [min] to [max] inclusive.
-  ///
-  /// Note: [min] and [max] can be negative, but [min] must be less than [max].
-  int nextInt([int min = kInt64Min, int max = kInt64Max]) {
-    // RangeError.checkValueInInterval(min, kInt64Min, kInt64Max, 'min');
-    // RangeError.checkValueInInterval(max, min, kInt64Max, 'max');
-    final limit = _getLimit(min, max);
-    assert(limit >= 0 || limit <= kInt64Max, 'limit = $limit');
-    final n = (limit < kUint32Max)
-        ? __nextUint32(limit)
-        : _nextUint64().remainder(limit);
-    return n + min;
+  /// Returns [String] with a length between [minLength] and
+  /// [maxLength] inclusive, containing visible ASCII code units
+  /// (see [nextAsciiVChar]).
+  String asciiString([int minLength, int maxLength]) {
+    final bytes = asciiBytes(minLength, maxLength);
+    return cvt.latin1.decode(bytes, allowInvalid: true);
   }
 
-  // Returns a 32-bit unsigned integer in the range from -[limit] to [limit]
-  // inclusive. _Note_: 0 <= [limit] <= 0xFFFFFFFF.
-  int __nextUint32(int limit) => generator.nextInt(limit + 1);
+  /// Returns a random [List<String>] containing ASCII Strings with
+  /// length between [minLength] and [maxLength] inclusive.
+  List<String> asciiList([int minLength, int maxLength]) {
+    final length = _getLength(minLength, maxLength);
+    final list = List<String>(length);
+    for (var i = 0; i < length; i++) list[i] = asciiString();
+    return list;
+  }
+
+  /// Returns a visible (printing) Latin character (code point).
+  int get nextLatinChar => _nextLatinChar();
+
+  int _nextLatinChar() {
+    final c = _nextUint32(0x20, 0xFF);
+    return ((c >= 0x7F && c <= 0x9F) || c < 32) ? _nextLatinChar : c;
+  }
+
+  /// Returns a random [Uint8List] with a length between [minLength]
+  /// and[maxLength] inclusive, containing Latin code points,
+  /// except '\' ([$backslash]).
+  Uint8List latinBytes([int minLength, int maxLength]) {
+    final length = _getLength(minLength, maxLength);
+    final list = Uint8List(length);
+    for (var i = 0; i < length; i++) list[i] = _nextLatinChar();
+    return list;
+  }
+
+  /// Returns [String] containing visible Latin code points
+  /// with a length between [minLength] and [maxLength] inclusive.
+  String latinString([int minLength, int maxLength]) {
+    final bytes = latinBytes(minLength, maxLength);
+    return cvt.latin1.decode(bytes, allowInvalid: true);
+  }
+
+  /// Returns a random [List<String>] containing Latin Strings with
+  /// length between [minLength] and [maxLength] inclusive.
+  List<String> latinList([int minLength, int maxLength]) {
+    final length = _getLength(minLength, maxLength);
+    final list = List<String>(length);
+    for (var i = 0; i < length; i++) list[i] = latinString();
+    return list;
+  }
+
+  /// Returns a Utf8 code point, i.e. between 32 and 255.
+  int get nextUtf8 => _nextUtf8;
+
+  // TODO this should be generating valid UTF8 code units.
+  /// Returns a Utf8 code point, i.e. between 32 and 255.
+  int get _nextUtf8 => _nextLatinChar();
+
+  /// Returns a random [Uint8List] with a length between [minLength] and
+  /// [maxLength] inclusive, corresponding to a UTF-8 String.
+  Uint8List utf8Bytes([int minLength, int maxLength]) {
+    final length = _getLength(minLength, maxLength);
+    final len = length.isEven ? length : length + 1;
+    final v = Uint8List(len);
+    for (var i = 0; i < length; i++) v[i] = _nextUtf8;
+    return v;
+  }
+
+  /// Returns [String] of [length] containing UTF-8 code units in the range
+  /// from 0 to 255. If [length] is specified, the returned [String] will
+  /// have that [length]; otherwise, it will have a random length, between 4
+  /// and 1024 inclusive. _Note_: While the returned [String] will contain
+  /// UTF-8 code units, they will not necessarily be valid code points.
+  String utf8String([int length]) {
+    length ??= nextUint(defaultMinStringLength, 4096);
+    RangeError.checkValueInInterval(length, 0, 4096, 'length');
+    final v = Uint8List(length);
+    for (var i = 0; i < length; i++) v[i] = nextUint8;
+    return cvt.utf8.decode(v, allowMalformed: true);
+  }
+
+  /// Returns a random [List<String>] containing UTF-8 Strings with
+  /// length between [minLength] and [maxLength] inclusive.
+  List<String> utf8List([int minLength, int maxLength]) {
+    final length = _getLength(minLength, maxLength);
+    final list = List<String>(length);
+    for (var i = 0; i < length; i++) list[i] = utf8String();
+    return list;
+  }
 
   // Always returns a positive integer that is less than Int32Max.
   int _getLimit(int min, int max) {
-    assert(min >= kInt64Min && max <= kInt64Max && min <= max);
+    assert(min >= 0 && max <= kInt64Max && min <= max);
     final limit = max - min;
+    assert(limit >= 0 || limit <= kInt64Max, 'limit = $limit');
     return (limit < 0) ? -limit : limit;
-  }
-
-  // Returns a 32-bit signed integer in the range from -[limit] to [limit]
-  // inclusive. _Note_: 0 <= [limit] <= 0xFFFFFFFF.
-  int _nextInt32([int min = kInt32Min, int max = kInt32Max]) {
-    assert(min != null && max != null);
-    final limit = _getLimit32(min, max);
-    return generator.nextInt(limit + 1) + min;
   }
 
   // Always returns a positive integer that is less than Int32Max.
@@ -283,83 +459,6 @@ class RNG {
     if (limit < 0) limit = -limit;
     if (limit > kUint32Max) limit = kUint32Max;
     return limit;
-  }
-
-  // TODO: See _nextSMInt issue is same
-  /// Returns a 64-bit random unsigned integer _n_, in the range
-  /// 0 >= n <= [kInt64Max]
-  int _nextUint64() {
-    final upper = generator.nextInt(kUint32Max);
-    final lower = generator.nextInt(kUint32Max);
-    final n = (upper << 31) | lower;
-    assert(n >= 0 && n <= kInt64Max, 'n = $n');
-    return n;
-  }
-
-  // TODO:
-  // This was designed for V1 with only supported 63-bit [int]s.
-  // Currently the V2 DartVM supports 64-but [int]s, and this should
-  // change; but JavaScript only supports 54-bit [int]s.
-  // However, it is a breaking change; so, Major version must increase by 1.
-  /// Returns a 64-bit random signed integer _n_, in the range
-  /// [kInt64Min >= n <= [kInt64Max].
-  int _nextInt64([int min = kInt64Min, int max = kInt64Max]) {
-    final upper = generator.nextInt(kUint32Max);
-    final lower = generator.nextInt(kUint32Max);
-    final n = (upper << 32) | lower;
-    return (generator.nextBool()) ? n : -n;
-  }
-
-  // TODO: See _nextSMInt issue is same
-  /// Returns a 63-bit random number between [min] and [max] inclusive,
-  /// Where [min] >= 0, and [max] >= min && [max] <= 0xFFFFFFFF.
-  int nextUint([int min = 0, int max = kInt64Max]) {
-    RangeError.checkValueInInterval(min, 0, kInt64Max, 'min');
-    RangeError.checkValueInInterval(max, min, kInt64Max, 'max');
-    var limit = max - min;
-    if (limit > kInt64Max) limit = kInt64Max;
-    if (limit < 0 || limit > kInt64Max)
-      // ignore: only_throw_errors
-      throw 'Invalid range error: 0 > $max - $min = $limit < 0xFFFFFFFF';
-    return (limit < kUint32Max)
-        ? generator.nextInt(limit + 1) + min
-        : _nextUint64().remainder(limit + 1);
-  }
-
-  /// Returns [String] containing visible ASCII code points, i.e. between
-  /// [$space](32) and [$del] - 1(126). If [length] is specified, the
-  /// returned [String] will have that [length]; otherwise, it will have
-  /// a random length, between 4 and 1024 inclusive.
-  String asciiString([int length]) {
-    length ??= defaultMinStringLength;
-    RangeError.checkValueInInterval(length, 0, 4096, 'length');
-    final v = Uint8List(length);
-    for (var i = 0; i < length; i++) v[i] = nextDicomAscii;
-    return cvt.ascii.decode(v, allowInvalid: true);
-  }
-
-  /// Returns [String] containing visible Latin code points.
-  /// If [length] is specified, the returned [String] will have that [length];
-  /// otherwise, it will have a random length, between 4 and 1024 inclusive.
-  String latinString([int length]) {
-    length ??= defaultMinStringLength;
-    RangeError.checkValueInInterval(length, 0, 4096, 'length');
-    final v = Uint8List(length);
-    for (var i = 0; i < length; i++) v[i] = nextDicomLatin;
-    return cvt.latin1.decode(v, allowInvalid: true);
-  }
-
-  /// Returns [String] of [length] containing UTF-8 code units in the range
-  /// from 0 to 255. If [length] is specified, the returned [String] will
-  /// have that [length]; otherwise, it will have a random length, between 4
-  /// and 1024 inclusive. _Note_: While the returned [String] will contain
-  /// UTF-8 code units, they will not necessarily be valid code points.
-  String utf8String([int length]) {
-    length ??= nextUint(defaultMinStringLength, 1024);
-    RangeError.checkValueInInterval(length, 0, 4096, 'length');
-    final v = Uint8List(length);
-    for (var i = 0; i < length; i++) v[i] = nextUint8;
-    return cvt.utf8.decode(v, allowMalformed: true);
   }
 
   /// Returns a random a length between [minLength] and [maxLength] inclusive.
@@ -375,194 +474,4 @@ class RNG {
     if (max == 0) return 0;
     return nextUint(min, max);
   }
-
-  /// Returns a random [List<int>] with a length between [minLength] and
-  /// [maxLength] inclusive. The [List] will contain integers in the range
-  /// [min] to [max] inclusive. [min] and [max] must be
-  /// valid 32-bit integers. [minLength] defaults to 1, and [maxLength]
-  /// defaults to 256.
-  List<int> intList(int min, int max, [int minLength, int maxLength]) {
-    RangeError.checkValueInInterval(min, kInt32Min, kInt32Max, 'Min');
-    RangeError.checkValueInInterval(max, min, kInt32Max, 'Max');
-    final len = _getLength(minLength, maxLength);
-    final vList = List<int>(len);
-    for (var i = 0; i < len; i++) vList[i] = nextInt(min, max);
-    return vList;
-  }
-
-  /// Returns a [List<ByteData>].
-  ByteData byteDataList(int min, int max, [int minLength, int maxLength]) {
-    RangeError.checkValueInInterval(min, kUint8Min, kUint8Max, 'Min');
-    RangeError.checkValueInInterval(max, min, kUint32Max, 'Max');
-    final len = _getLength(minLength, maxLength);
-    final vList = ByteData(len);
-    for (var i = 0; i < len; i++) vList.setUint8(i, nextInt(min, max));
-    return vList;
-  }
-
-  /// Returns a random [List<int>] with a length between [minLength] and
-  /// [maxLength] inclusive. The [List] will contain 8-bit signed integers.
-  Int8List int8List([int minLength, int maxLength]) {
-    final length = _getLength(minLength, maxLength);
-    final v = Int8List(length);
-    for (var i = 0; i < length; i++) v[i] = nextInt8;
-    return v;
-  }
-
-  /// Returns a random [Int16List] with a length between [minLength] and
-  /// [maxLength] inclusive. The [List] will contain 16-bit signed integers.
-  Int16List int16List([int minLength, int maxLength]) {
-    final length = _getLength(minLength, maxLength);
-    final v = Int16List(length);
-    for (var i = 0; i < length; i++) v[i] = nextInt16;
-    return v;
-  }
-
-  /// Returns a random [Int32List] with a length between [minLength] and
-  /// [maxLength] inclusive. The [List] will contain 32-bit signed integers.
-  Int32List int32List([int minLength, int maxLength]) {
-    final length = _getLength(minLength, maxLength);
-    final v = Int32List(length);
-    for (var i = 0; i < length; i++) v[i] = nextInt32;
-    return v;
-  }
-
-  /// Returns a random [Int64List] with a length between [minLength] and
-  /// [maxLength] inclusive. The [List] will contain 64-bit signed integers.
-  Int64List int64List([int minLength, int maxLength]) {
-    final length = _getLength(minLength, maxLength);
-    final v = Int64List(length);
-    for (var i = 0; i < length; i++) v[i] = nextInt64;
-    return v;
-  }
-
-  /// Returns a random [Uint8List] with a length between [minLength] and
-  /// [maxLength] inclusive. The [List] will contain 8-bit unsigned integers.
-  Uint8List uint8List([int minLength, int maxLength]) {
-    final length = _getLength(minLength, maxLength);
-    final v = Uint8List(length);
-    for (var i = 0; i < length; i++) v[i] = nextUint8;
-    return v;
-  }
-
-  /// Returns a random [Uint16List] with a length between [minLength] and
-  /// [maxLength] inclusive. The [List] will contain 16-bit unsigned integers.
-  Uint16List uint16List([int minLength, int maxLength]) {
-    final length = _getLength(minLength, maxLength);
-    final v = Uint16List(length);
-    for (var i = 0; i < length; i++) v[i] = nextUint16;
-    return v;
-  }
-
-  /// Returns a random [Uint32List] with a length between [minLength] and
-  /// [maxLength] inclusive. The [List] will contain 32-bit unsigned integers.
-  Uint32List uint32List([int minLength, int maxLength]) {
-    final length = _getLength(minLength, maxLength);
-    final v = Uint32List(length);
-    for (var i = 0; i < length; i++) v[i] = nextUint32;
-    return v;
-  }
-
-  /// Returns a random [Uint64List] with a length between [minLength] and
-  /// [maxLength] inclusive. The [List] will contain 64-bit unsigned integers.
-  Uint64List uint64List([int minLength, int maxLength]) {
-    final length = _getLength(minLength, maxLength);
-    final v = Uint64List(length);
-    for (var i = 0; i < length; i++) v[i] = nextUint64;
-    return v;
-  }
-
-  /// Returns a random [List<double>] with a length between [minLength] and
-  /// [maxLength] inclusive.
-  List<double> listOfDouble([int minLength = 1, int maxLength = 1000]) {
-    final len = _getLength(minLength, maxLength);
-    final vList = List<double>(len);
-    for (var i = 0; i < len; i++) vList[i] = nextDouble;
-    return vList;
-  }
-
-  /// Returns a random [List<double>] with a length between [minLength] and
-  /// [maxLength] inclusive.
-  List<double> listOfFloat32([int minLength, int maxLength]) {
-    final len = _getLength(minLength, maxLength);
-    final vList = List<double>(len);
-    for (var i = 0; i < len; i++) vList[i] = nextFloat32;
-    return vList;
-  }
-
-  /// Returns a random [Float32List] with a length between [minLength] and
-  /// [maxLength] inclusive. The [List] will contain 32-bit floating point
-  /// numbers.
-  Float32List float32List([int minLength, int maxLength]) {
-    final length = _getLength(minLength, maxLength);
-    final v = Float32List(length);
-    for (var i = 0; i < length; i++) v[i] = nextFloat32;
-    return v;
-  }
-
-  /// Returns a random [Float64List] with a length between [minLength] and
-  /// [maxLength] inclusive. The [List] will contain 64-bit floating point
-  /// numbers.
-  Float64List float64List([int minLength, int maxLength]) {
-    final length = _getLength(minLength, maxLength);
-    final v = Float64List(length);
-    for (var i = 0; i < length; i++) v[i] = nextFloat64;
-    return v;
-  }
-
-  /// Returns a random [Uint8List] with a length between [minLength] and
-  /// [maxLength] inclusive, corresponding to a UTF-8 String.
-  Uint8List utf8Bytes([int minLength, int maxLength]) {
-    final length = _getLength(minLength, maxLength);
-    final len = length.isEven ? length : length + 1;
-    final v = Uint8List(len);
-    for (var i = 0; i < length; i++) v[i] = nextUtf8;
-    return v;
-  }
-
-  /// Returns a random [List<String>] containing UTF-8 Strings with
-  /// length between [minLength] and [maxLength] inclusive.
-  List<String> utf8List([int minLength, int maxLength]) {
-    final length = _getLength(minLength, maxLength);
-    final list = List<String>(length);
-    for (var i = 0; i < length; i++) list[i] = utf8String();
-    return list;
-  }
-
-  /// Returns a random [Uint8List] with a length between [minLength] and
-  /// [maxLength] inclusive, corresponding to an ASCII String.
-  Uint8List asciiBytes([int minLength, int maxLength]) {
-    final length = _getLength(minLength, maxLength);
-    final len = length.isEven ? length : length + 1;
-    final v = Uint8List(len);
-    for (var i = 0; i < length; i++) v[i] = nextAscii;
-    return v;
-  }
-
-  /// Returns a random [List<String>] containing ASCII Strings with
-  /// length between [minLength] and [maxLength] inclusive.
-  List<String> asciiList([int minLength, int maxLength]) {
-    final length = _getLength(minLength, maxLength);
-    final list = List<String>(length);
-    for (var i = 0; i < length; i++) list[i] = asciiString();
-    return list;
-  }
-
-  /// Returns a random [Uint8List] with a length between [minLength] and
-  /// [maxLength] inclusive, corresponding to an Latin1 String.
-  Uint8List latinBytes([int minLength, int maxLength]) =>
-      utf8Bytes(minLength, maxLength);
-
-  /// Returns a random [List<String>] containing Latin Strings with
-  /// length between [minLength] and [maxLength] inclusive.
-  List<String> latinList([int minLength, int maxLength]) {
-    final length = _getLength(minLength, maxLength);
-    final list = List<String>(length);
-    for (var i = 0; i < length; i++) list[i] = latinString();
-    return list;
-  }
 }
-
-/// Returns _true_ if [c] is an regex \w character, i.e. alphanumeric or '_'.
-bool isWordChar(int c) =>
-    (c >= $a) && (c <= $z) || (c >= $A) && (c <= $Z) || c == $underscore;
