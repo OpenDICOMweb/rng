@@ -17,25 +17,25 @@ import 'package:rng/src/constants.dart';
 ///
 /// This package extends the [Random] number generator provided by
 /// the Dart _core_ library.
-//TODO: document
+//TODO: finish document
 class RNG {
   /// True if using [Random.secure].
   final bool isSecure;
 
-  /// The default minimum [String] length returned.
-  final int defaultMinStringLength;
-
-  /// The default maximum [String] length returned.
-  final int defaultMaxStringLength;
-
-  /// The default minimum [List] length returned.
-  final int defaultMinListLength;
-
-  /// The default maximum [List] length returned.
-  final int defaultMaxListLength;
-
   /// The initial [seed]. If _null_ no [seed] was provided.
   final int seed;
+
+  /// The default minimum [String] length returned.
+  final int minStringLength;
+
+  /// The default maximum [String] length returned.
+  final int maxStringLength;
+
+  /// The default minimum [List] length returned.
+  final int minListLength;
+
+  /// The default maximum [List] length returned.
+  final int maxListLength;
 
   /// The [Random] number generator being used.
   final Random generator;
@@ -52,10 +52,10 @@ class RNG {
   RNG.withDefaults({
     this.isSecure = false,
     this.seed,
-    this.defaultMinStringLength = 4,
-    this.defaultMaxStringLength = 1024,
-    this.defaultMinListLength = 1,
-    this.defaultMaxListLength = 256,
+    this.minStringLength = 0,
+    this.maxStringLength = 512,
+    this.minListLength = 1,
+    this.maxListLength = 256,
   }) : generator = isSecure ? Random.secure() : Random(seed);
 
   /// Returns a random boolean ([bool]).
@@ -72,7 +72,7 @@ class RNG {
   /// valid 32-bit integers. [minLength] defaults to 1, and [maxLength]
   /// defaults to 256.
   List<int> intList(int min, int max, [int minLength, int maxLength]) {
-    final len = _getLength(minLength, maxLength);
+    final len = _getListLength(minLength, maxLength);
     final vList = List<int>(len);
     for (var i = 0; i < len; i++) vList[i] = _nextInt(min, max);
     return vList;
@@ -97,7 +97,7 @@ class RNG {
   /// Returns a random [List<int>] with a length between [minLength] and
   /// [maxLength] inclusive. The [List] will contain 8-bit signed integers.
   Int8List int8List([int minLength, int maxLength]) {
-    final length = _getLength(minLength, maxLength);
+    final length = _getListLength(minLength, maxLength);
     final v = Int8List(length);
     for (var i = 0; i < length; i++) v[i] = _nextInt32(kInt8Min, kInt8Max);
     return v;
@@ -109,7 +109,7 @@ class RNG {
   /// Returns a random [Int16List] with a length between [minLength] and
   /// [maxLength] inclusive. The [List] will contain 16-bit signed integers.
   Int16List int16List([int minLength, int maxLength]) {
-    final length = _getLength(minLength, maxLength);
+    final length = _getListLength(minLength, maxLength);
     final v = Int16List(length);
     for (var i = 0; i < length; i++) v[i] = _nextInt32(kInt16Min, kInt16Max);
     return v;
@@ -121,7 +121,7 @@ class RNG {
   /// Returns a random [Int32List] with a length between [minLength] and
   /// [maxLength] inclusive. The [List] will contain 32-bit signed integers.
   Int32List int32List([int minLength, int maxLength]) {
-    final length = _getLength(minLength, maxLength);
+    final length = _getListLength(minLength, maxLength);
     final v = Int32List(length);
     for (var i = 0; i < length; i++) v[i] = _nextInt32(minLength, maxLength);
     return v;
@@ -141,7 +141,7 @@ class RNG {
   /// Returns a random [Int64List] with a length between [minLength] and
   /// [maxLength] inclusive. The [List] will contain 64-bit signed integers.
   Int64List int64List([int minLength, int maxLength]) {
-    final length = _getLength(minLength, maxLength);
+    final length = _getListLength(minLength, maxLength);
     final v = Int64List(length);
     for (var i = 0; i < length; i++) v[i] = _nextInt64(minLength, maxLength);
     return v;
@@ -162,9 +162,11 @@ class RNG {
     RangeError.checkValueInInterval(min, 0, kInt64Max, 'min');
     RangeError.checkValueInInterval(max, min, kInt64Max, 'max');
     final limit = max - min;
+/* Urgent remove at 0.9
     if (limit < 0 || limit > kInt64Max)
       // ignore: only_throw_errors
       throw 'Invalid range error: 0 > $max - $min = $limit < 0xFFFFFFFF';
+*/
     return (limit < kUint32Max)
         ? generator.nextInt(limit + 1) + min
         : _nextUint64().remainder(limit + 1);
@@ -179,7 +181,7 @@ class RNG {
   /// Returns a random [Uint8List] with a length between [minLength] and
   /// [maxLength] inclusive. The [List] will contain 8-bit unsigned integers.
   Uint8List uint8List([int minLength, int maxLength]) {
-    final length = _getLength(minLength, maxLength);
+    final length = _getListLength(minLength, maxLength);
     final v = Uint8List(length);
     for (var i = 0; i < length; i++) v[i] = nextUint8;
     return v;
@@ -191,7 +193,7 @@ class RNG {
   /// Returns a random [Uint16List] with a length between [minLength] and
   /// [maxLength] inclusive. The [List] will contain 16-bit unsigned integers.
   Uint16List uint16List([int minLength, int maxLength]) {
-    final length = _getLength(minLength, maxLength);
+    final length = _getListLength(minLength, maxLength);
     final v = Uint16List(length);
     for (var i = 0; i < length; i++) v[i] = nextUint16;
     return v;
@@ -203,7 +205,7 @@ class RNG {
   /// Returns a random [Uint32List] with a length between [minLength] and
   /// [maxLength] inclusive. The [List] will contain 32-bit unsigned integers.
   Uint32List uint32List([int minLength, int maxLength]) {
-    final length = _getLength(minLength, maxLength);
+    final length = _getListLength(minLength, maxLength);
     final v = Uint32List(length);
     for (var i = 0; i < length; i++) v[i] = nextUint32;
     return v;
@@ -222,7 +224,7 @@ class RNG {
   /// Returns a random [Uint64List] with a length between [minLength] and
   /// [maxLength] inclusive. The [List] will contain 64-bit unsigned integers.
   Uint64List uint64List([int minLength, int maxLength]) {
-    final length = _getLength(minLength, maxLength);
+    final length = _getListLength(minLength, maxLength);
     final v = Uint64List(length);
     for (var i = 0; i < length; i++) v[i] = nextUint64;
     return v;
@@ -255,7 +257,7 @@ class RNG {
   /// [maxLength] inclusive. The [List] will contain 32-bit floating point
   /// numbers.
   Float32List float32List([int minLength, int maxLength]) {
-    final length = _getLength(minLength, maxLength);
+    final length = _getListLength(minLength, maxLength);
     final v = Float32List(length);
     for (var i = 0; i < length; i++) v[i] = nextFloat32;
     return v;
@@ -269,7 +271,7 @@ class RNG {
   /// [maxLength] inclusive. The [List] will contain 64-bit floating point
   /// numbers.
   Float64List float64List([int minLength, int maxLength]) {
-    final length = _getLength(minLength, maxLength);
+    final length = _getListLength(minLength, maxLength);
     final v = Float64List(length);
     for (var i = 0; i < length; i++) v[i] = nextFloat64;
     return v;
@@ -281,7 +283,7 @@ class RNG {
   /// Returns a random [List<double>] with a length between [minLength] and
   /// [maxLength] inclusive, containing values between 0 and 1.
   List<double> doubleList([int minLength, int maxLength]) {
-    final len = _getLength(minLength, maxLength);
+    final len = _getListLength(minLength, maxLength);
     final vList = List<double>(len);
     for (var i = 0; i < len; i++) vList[i] = generator.nextDouble();
     return vList;
@@ -291,7 +293,7 @@ class RNG {
   ByteData byteDataList(int min, int max, [int minLength, int maxLength]) {
     RangeError.checkValueInInterval(min, kUint8Min, kUint8Max, 'Min');
     RangeError.checkValueInInterval(max, min, kUint32Max, 'Max');
-    final len = _getLength(minLength, maxLength);
+    final len = _getListLength(minLength, maxLength);
     final vList = ByteData(len);
     for (var i = 0; i < len; i++) vList.setUint8(i, nextInt(min, max));
     return vList;
@@ -308,7 +310,7 @@ class RNG {
   String nextIntString([int minLength = 1, int maxLength = 12]) {
     RangeError.checkValidRange(1, minLength, maxLength);
     RangeError.checkValidRange(minLength, maxLength, 12);
-    final len = _getLength(minLength, maxLength);
+    final len = _getListLength(minLength, maxLength);
     if (len == 1) return nextDigit;
     final sb = StringBuffer();
 
@@ -335,74 +337,105 @@ class RNG {
     return (predicate(c)) ? c : nextAsciiSatisfying(predicate);
   }
 
+  /// Returns _true_ if [c] is a valid _ASCII_ character.
+  bool isAsciiVChar(int c) => c >= $space && c < $del;
+
   /// Returns an ASCII character (code point), i.e. in range 0 - 127 inclusive.
   int get nextAsciiChar => nextUint7;
 
   /// Returns a visible (printing) ASCII character (code point),
   /// i.e. [$space](0x20) and [$tilde] (0x7E) inclusive.
-  int get nextAsciiVChar => _nextUint32($space, $tilde);
+  int get nextAsciiVCharWithBackslach => _nextUint32($space, $tilde);
 
-  /// Returns a random [Uint8List] with a length between [minLength] and
-  /// [maxLength] inclusive, containing visible ASCII code points
-  /// (see [nextAsciiVChar]), which corresponds to an ASCII String.
-  Uint8List asciiBytes([int minLength, int maxLength]) {
-    final length = _getLength(minLength, maxLength);
-    final len = length.isEven ? length : length + 1;
-    final v = Uint8List(len);
-    for (var i = 0; i < length; i++) v[i] = nextAsciiVChar;
-    return v;
+  /// Returns a visible (printing) ASCII character (code point),
+  /// except for [$backslash] ('\').
+  int get nextAsciiVChar => _nextAsciiVChar();
+
+  int _nextAsciiVChar() {
+    final c = _nextUint32($space, $tilde);
+    return (c == $backslash) ? _nextAsciiVChar() : c;
   }
 
-  /// Returns [String] with a length between [minLength] and
-  /// [maxLength] inclusive, containing visible ASCII code units
+  /// Returns a random [Uint8List] with a length between [sMin] and
+  /// [sMax] inclusive, containing code points generated by
+  /// [getChar], which corresponds to an ASCII String.
+  Uint8List stringBytes(int sMin, int sMax, int getChar()) {
+    final length = _getStringLength(sMin, sMax);
+    final len = length.isEven ? length : length + 1;
+    final list = Uint8List(len);
+    for (var i = 0; i < list.length; i++) list[i] = getChar();
+/* Urgent remove when working
+    for (var i = 0; i < list.length; i++) {
+      var c = list[i];
+      if (!isValidLatinChar(c)) throw 'Bad $c in latinBytes';
+    }
+*/
+
+    return list;
+  }
+
+  /// Returns a random [Uint8List] with a length between [sMin] and
+  /// [sMax] inclusive, containing visible ASCII code points
+  /// (see [nextAsciiVChar]), which corresponds to an ASCII String.
+  Uint8List asciiBytes([int sMin, int sMax]) =>
+      stringBytes(sMin, sMax, _nextAsciiVChar);
+
+  /// Returns [String] with a length between [sMin] and
+  /// [sMax] inclusive, containing visible ASCII code units
   /// (see [nextAsciiVChar]).
-  String asciiString([int minLength, int maxLength]) {
-    final bytes = asciiBytes(minLength, maxLength);
-    return cvt.latin1.decode(bytes, allowInvalid: true);
+  String asciiString([int sMin, int sMax]) {
+    final bytes = asciiBytes(sMin, sMax);
+    return cvt.ascii.decode(bytes, allowInvalid: true);
   }
 
   /// Returns a random [List<String>] containing ASCII Strings with
   /// length between [minLength] and [maxLength] inclusive.
-  List<String> asciiList([int minLength, int maxLength]) {
-    final length = _getLength(minLength, maxLength);
-    final list = List<String>(length);
-    for (var i = 0; i < length; i++) list[i] = asciiString();
-    return list;
-  }
+  List<String> asciiList([int minLength, int maxLength]) =>
+      _getStringList(minLength, maxLength, asciiString);
+
+  /// Returns _true_ if [c] is a valid _Latin1_ character.
+  bool isLatinVChar(int c) =>
+      (c >= $space && c < $del || c >= $nbsp && c <= $yuml) && c != $backslash;
 
   /// Returns a visible (printing) Latin character (code point).
   int get nextLatinChar => _nextLatinChar();
 
   int _nextLatinChar() {
-    final c = _nextUint32(0x20, 0xFF);
-    return ((c >= 0x7F && c <= 0x9F) || c < 32) ? _nextLatinChar : c;
+    final c = _nextUint32(0, 0xFF);
+    return isLatinVChar(c) ? c : _nextLatinChar();
+/* Urgent remove when fully working
+    if (c == 0) throw "c ==  0";
+
+    return c;
+*/
   }
 
-  /// Returns a random [Uint8List] with a length between [minLength]
-  /// and[maxLength] inclusive, containing Latin code points,
+  /// Returns a random [Uint8List] with a length between [sMin]
+  /// and[sMax] inclusive, containing Latin code points,
   /// except '\' ([$backslash]).
-  Uint8List latinBytes([int minLength, int maxLength]) {
-    final length = _getLength(minLength, maxLength);
-    final list = Uint8List(length);
-    for (var i = 0; i < length; i++) list[i] = _nextLatinChar();
+  Uint8List latinBytes([int sMin, int sMax]) {
+    final list = stringBytes(sMin, sMax, _nextLatinChar);
+/*
+    for (var i = 0; i < list.length; i++) {
+      final c = list[i];
+      if (!isLatinVChar(c)) throw 'Bad $c in latinBytes';
+    }
+*/
+
     return list;
   }
 
   /// Returns [String] containing visible Latin code points
-  /// with a length between [minLength] and [maxLength] inclusive.
-  String latinString([int minLength, int maxLength]) {
-    final bytes = latinBytes(minLength, maxLength);
+  /// with a length between [sMin] and [sMax] inclusive.
+  String latinString([int sMin, int sMax]) {
+    final bytes = latinBytes(sMin, sMax);
     return cvt.latin1.decode(bytes, allowInvalid: true);
   }
 
   /// Returns a random [List<String>] containing Latin Strings with
   /// length between [minLength] and [maxLength] inclusive.
-  List<String> latinList([int minLength, int maxLength]) {
-    final length = _getLength(minLength, maxLength);
-    final list = List<String>(length);
-    for (var i = 0; i < length; i++) list[i] = latinString();
-    return list;
-  }
+  List<String> latinList([int minLength, int maxLength]) =>
+      _getStringList(minLength, maxLength, latinString);
 
   /// Returns a Utf8 code point, i.e. between 32 and 255.
   int get nextUtf8 => _nextUtf8;
@@ -411,37 +444,22 @@ class RNG {
   /// Returns a Utf8 code point, i.e. between 32 and 255.
   int get _nextUtf8 => _nextLatinChar();
 
-  /// Returns a random [Uint8List] with a length between [minLength] and
-  /// [maxLength] inclusive, corresponding to a UTF-8 String.
-  Uint8List utf8Bytes([int minLength, int maxLength]) {
-    final length = _getLength(minLength, maxLength);
-    final len = length.isEven ? length : length + 1;
-    final v = Uint8List(len);
-    for (var i = 0; i < length; i++) v[i] = _nextUtf8;
-    return v;
-  }
+  /// Returns a random [Uint8List] with a length between [sMin] and
+  /// [sMax] inclusive, corresponding to a UTF-8 String.
+  Uint8List utf8Bytes([int sMin, int sMax]) =>
+      stringBytes(sMin, sMax, _nextLatinChar);
 
-  /// Returns [String] of [length] containing UTF-8 code units in the range
-  /// from 0 to 255. If [length] is specified, the returned [String] will
-  /// have that [length]; otherwise, it will have a random length, between 4
-  /// and 1024 inclusive. _Note_: While the returned [String] will contain
-  /// UTF-8 code units, they will not necessarily be valid code points.
-  String utf8String([int length]) {
-    length ??= nextUint(defaultMinStringLength, 4096);
-    RangeError.checkValueInInterval(length, 0, 4096, 'length');
-    final v = Uint8List(length);
-    for (var i = 0; i < length; i++) v[i] = nextUint8;
-    return cvt.utf8.decode(v, allowMalformed: true);
-  }
+  // TODO this should be using _nextUtf8CodeUint.
+  /// Returns [String] containing visible UTF8 code points.
+  /// with a length between [sMin] and [sMax] inclusive.
+  ///
+  /// _Note_: Currently the returned String only has _Latin_ code points.
+  String utf8String([int sMin, int sMax]) => latinString(sMin, sMax);
 
   /// Returns a random [List<String>] containing UTF-8 Strings with
   /// length between [minLength] and [maxLength] inclusive.
-  List<String> utf8List([int minLength, int maxLength]) {
-    final length = _getLength(minLength, maxLength);
-    final list = List<String>(length);
-    for (var i = 0; i < length; i++) list[i] = utf8String();
-    return list;
-  }
+  List<String> utf8List([int minLength, int maxLength]) =>
+      _getStringList(minLength, maxLength, utf8String);
 
   // Always returns a positive integer that is less than Int32Max.
   int _getLimit(int min, int max) {
@@ -466,12 +484,40 @@ class RNG {
   /// be less than or equal to 2^31-1, i.e. the maximum 32-bit signed positive
   /// integer.
   int getLength([int minLength, int maxLength]) =>
-      _getLength(minLength, maxLength);
+      _getListLength(minLength, maxLength);
 
-  int _getLength([int min, int max]) {
-    min ??= defaultMinListLength;
-    max ??= defaultMaxListLength;
+  int _getListLength([int min, int max]) {
+    min ??= minListLength;
+    max ??= maxListLength;
     if (max == 0) return 0;
     return nextUint(min, max);
   }
+
+  // TODO parameterize 0 and 4096 below
+  List<String> _getStringList(int min, int max, StringGenerator gen) {
+    final list = List<String>(_getListLength(min, max));
+    if (list.isNotEmpty) {
+      final out = <String>[];
+      for (var i = 0; i < list.length; i++) {
+        final s = gen(minStringLength, maxStringLength);
+        list[i] = s;
+        out.add(s);
+      }
+/* Urgent remove when v0.9
+      for (var i = 0; i < list.length; i++) {
+        print('$i ${out[i].codeUnits}');
+      }
+*/
+    }
+    return list;
+  }
+
+  int _getStringLength([int sMin, int sMax]) {
+    sMin ??= minStringLength;
+    sMax ??= maxStringLength;
+    if (sMax == 0) return 0;
+    return nextUint(sMin, sMax);
+  }
 }
+
+typedef StringGenerator = String Function([int min, int max]);

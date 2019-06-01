@@ -31,34 +31,23 @@ class DicomRNG extends RNG {
   DicomRNG.withDefaults({
     bool isSecure = false,
     int seed,
-    int defaultMinStringLength = 4,
-    int defaultMaxStringLength = 1024,
-    int defaultMinListLength = 1,
-    int defaultMaxListLength = 256,
+    int minStringLength = 0,
+    int maxStringLength = 512,
+    int minListLength = 1,
+    int maxListLength = 256,
   }) : super.withDefaults(
             isSecure: isSecure,
             seed: seed,
-            defaultMinListLength: defaultMinListLength,
-            defaultMaxListLength: defaultMaxListLength,
-            defaultMinStringLength: defaultMinStringLength,
-            defaultMaxStringLength: defaultMaxStringLength);
-
-  /// Returns a visible (printing) ASCII character (code point),
-  /// except for [$backslash] ('\').
-  int get nextAsciiDicomChar => _nextAsciiDicomChar();
-
-  int _nextAsciiDicomChar() {
-    final c = _nextUint32($space, $tilde);
-    return (c == $backslash) ? _nextAsciiDicomChar : c;
-  }
+            minListLength: minListLength,
+            maxListLength: maxListLength,
+            minStringLength: minStringLength,
+            maxStringLength: maxStringLength);
 
   /// Returns a visible (printing) Latin character (code point),
   /// except for [$backslash] ('\').
-  int get nextLatinDicomChar => _nextLatinDicomChar();
-
-  int _nextLatinDicomChar() {
+  int nextLatinDicomChar() {
     final c = nextLatinChar;
-    return (c == $backslash) ? _nextLatinDicomChar() : c;
+    return (c == $backslash) ? nextLatinDicomChar() : c;
   }
 
   /// Returns an ASCII alphabetic (A-Z, a-z) character (code point) or
